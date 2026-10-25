@@ -1,0 +1,526 @@
+# PRODUCT REQUIREMENTS DOCUMENT (PRD)
+
+## VibeGuard — AI-Powered Security Scanner for AI-Built Applications
+
+**Version:** 1.0  
+**Document Date:** 24 October 2026  
+**Project Type:** Hackathon MVP / Startup Prototype  
+**Hackathon:** Indiathon — Build Your MVP, 14-Day Challenge  
+**Product Category:** Application Security / Developer Tools  
+**Platform:** Responsive Web Application
+
+---
+
+## 1. Executive Summary
+
+VibeGuard is an application security tool designed to help students, indie developers, and startup founders identify common security vulnerabilities in applications built with AI coding tools.
+
+AI-powered development platforms allow users to generate applications quickly, but the resulting code may contain exposed API keys, hardcoded credentials, insecure configurations, vulnerable dependencies, and missing authorization checks. Developers without security expertise may struggle to identify these risks before deploying their applications.
+
+VibeGuard provides an accessible security-scanning workflow that analyzes source code, presents evidence-based findings, explains security risks in simple language, recommends corrective actions, and verifies whether identified issues have been resolved.
+
+The hackathon MVP will focus on functional source-code scanning and a controlled two-user authorization demonstration. It will prioritize real, testable functionality over broad but incomplete feature coverage.
+
+## 2. Problem Statement
+
+AI coding tools have made application development faster and more accessible. However, applications generated with these tools can contain security vulnerabilities, including exposed credentials, unsafe database permissions, weak authorization checks, and insecure configurations.
+
+Many students, beginner developers, and startup founders lack the cybersecurity expertise and affordable testing tools needed to identify these problems before deployment. Existing automated checks may also miss application-specific authorization flaws, such as one logged-in user accessing another user's private information.
+
+VibeGuard aims to address this gap by providing a beginner-friendly platform that detects common security risks, presents supporting evidence, recommends fixes, and retests the application to verify corrections.
+
+## 3. Product Vision
+
+To make application security accessible to everyone building software with AI.
+
+**Tagline:** Build with AI. Launch with confidence.
+
+**Core promise:** Detect a security problem, understand it, fix it, and verify the fix.
+
+## 4. Objectives
+
+The MVP aims to:
+
+1. Identify common security issues in uploaded application source code.
+2. Present findings with severity, affected files, line numbers, and redacted evidence.
+3. Explain vulnerabilities in beginner-friendly language.
+4. Generate actionable remediation guidance and AI coding assistant prompts.
+5. Demonstrate an authorization flaw using two isolated test users.
+6. Verify fixes by rerunning the relevant security checks.
+7. Generate a downloadable security report.
+8. Demonstrate a complete working solution within the Indiathon challenge period.
+
+## 5. Target Users
+
+### 5.1 Primary Users
+
+**Students and beginner developers:** Individuals creating academic projects using AI coding tools who need understandable security feedback.
+
+**Indie developers:** Individuals building and deploying applications independently.
+
+**Startup founders:** Early-stage founders using AI-generated code to build prototypes and MVPs.
+
+### 5.2 Secondary Users
+
+- Hackathon participants.
+- Small development teams.
+- Freelance developers and agencies.
+- Colleges conducting secure-development workshops.
+
+## 6. User Personas
+
+### Persona A: Student Developer
+
+Builds projects using AI coding assistants but has limited security knowledge. Needs simple explanations, free access, and guidance on fixing common vulnerabilities.
+
+### Persona B: Indie Founder
+
+Uses AI tools to build and launch products quickly. Needs to identify important risks before deployment without configuring a complex enterprise security platform.
+
+### Persona C: Early-Stage Startup Developer
+
+Works across frontend, backend, database, and deployment services. Needs repeatable checks and evidence that fixes have been applied successfully.
+
+## 7. Product Scope
+
+### 7.1 In Scope for the MVP
+
+- Responsive landing page.
+- Project ZIP upload and validation.
+- Source-code security scanning.
+- Exposed-secret and hardcoded-credential detection.
+- Selected unsafe configuration checks.
+- Findings dashboard.
+- Severity and confidence classifications.
+- Evidence-based remediation guidance.
+- Copyable prompts for AI coding tools.
+- Controlled two-user authorization test.
+- Fix verification through repeat testing.
+- Downloadable security report.
+- Sample vulnerable and corrected projects.
+- Automated tests and setup documentation.
+
+### 7.2 Out of Scope for the Initial MVP
+
+- Comprehensive penetration testing of arbitrary live websites.
+- Guaranteed detection of all vulnerabilities.
+- Autonomous modification of production applications.
+- Full integration with every AI coding platform.
+- Complete GitHub App and MCP ecosystem.
+- Enterprise team management and billing.
+- Full legal compliance certification.
+- Comprehensive DPDP compliance auditing.
+
+These features may be considered after the core product is validated.
+
+## 8. Functional Requirements
+
+### FR-01: Landing Page
+
+The system shall provide a responsive landing page explaining the problem, proposed solution, key capabilities, and limitations.
+
+**Acceptance criteria:**
+- Users can navigate to the scanner.
+- Users can launch the interactive demo.
+- The page displays correctly on desktop and mobile.
+- Navigation and primary buttons work.
+
+### FR-02: Project Upload
+
+The system shall allow users to upload ZIP archives containing source code.
+
+**Acceptance criteria:**
+- Supported file types and sizes are validated.
+- Invalid archives produce understandable error messages.
+- Archive path traversal is prevented.
+- Uploaded code is handled as untrusted input.
+- The application displays upload and scan status.
+
+### FR-03: Security Scanning
+
+The system shall inspect supported source files and configuration files using deterministic security rules and available established scanners.
+
+The initial checks shall include:
+
+- Likely exposed API keys and tokens.
+- Hardcoded credentials.
+- Risky environment-file handling.
+- Selected database configuration risks.
+- Detectable missing or weak authorization patterns.
+- Dependency vulnerabilities when a reliable scanner or vulnerability database is available.
+
+**Acceptance criteria:**
+- Checks run against actual uploaded files.
+- Findings identify the applicable rule.
+- File and line information are included when available.
+- Secret values are redacted.
+- Unsupported checks are disclosed.
+- Scan errors are not presented as successful results.
+
+### FR-04: Findings Dashboard
+
+The system shall display a summary of scan results and detailed finding records.
+
+Each finding shall include:
+
+- Title and category.
+- Severity.
+- Confidence or verification status.
+- Affected file and line number when available.
+- Redacted evidence.
+- Risk explanation.
+- Recommended remediation.
+- Current verification status.
+
+**Acceptance criteria:**
+- Users can filter findings by severity and category.
+- Users can open individual findings.
+- Findings are distinguishable from informational recommendations.
+- Demo results are clearly labelled as demonstration data.
+
+### FR-05: AI-Assisted Explanation
+
+The system may use an available language model to explain verified scanner findings and generate remediation prompts.
+
+**Acceptance criteria:**
+- Explanations are based on actual finding records.
+- The system does not fabricate scan evidence.
+- Raw secrets are not sent to the model.
+- Model access is optional for the basic scanning workflow.
+- If model access is unavailable, predefined explanations remain usable.
+
+### FR-06: Remediation Guidance
+
+The system shall provide suggested corrections and copyable prompts for AI coding tools.
+
+**Acceptance criteria:**
+- Every supported finding has relevant remediation guidance.
+- Users can copy the suggested prompt.
+- The application does not claim that copying a prompt fixes the issue.
+- Users can upload corrected source code for verification.
+
+### FR-07: Two-User Authorization Demonstration
+
+The system shall provide an isolated sample application demonstrating an authorization vulnerability.
+
+The test environment shall contain two users and synthetic order data.
+
+**Vulnerable scenario:** User B attempts to access an order owned by User A and succeeds because ownership is not checked.
+
+**Corrected scenario:** User B is denied access to User A's order but can access their own order.
+
+**Acceptance criteria:**
+- The vulnerable test reproduces the unauthorized access.
+- The corrected test denies unauthorized access.
+- Legitimate access continues to work.
+- The results are based on executed tests.
+- No real customer data or third-party applications are involved.
+
+### FR-08: Fix Verification
+
+The system shall rerun the relevant security check against corrected source code or the corrected demonstration endpoint.
+
+**Acceptance criteria:**
+- The original finding remains open until verification succeeds.
+- A user cannot mark a finding verified merely by clicking a button.
+- Verification results are recorded.
+- Failed verification leaves the finding unresolved.
+
+### FR-09: Security Report
+
+The system shall generate a downloadable report in JSON or HTML format, with PDF export if supported.
+
+The report shall include the scan identifier, date, checks performed, findings, severity, redacted evidence, recommendations, verification results, and limitations.
+
+**Acceptance criteria:**
+- The report downloads successfully.
+- Findings match the actual scan results.
+- Secrets are redacted.
+- Untested areas are disclosed.
+- The report does not certify complete security.
+
+### FR-10: Demonstration Mode
+
+The system shall include a controlled demonstration that users can run without configuring paid services or supplying an AI API key.
+
+**Acceptance criteria:**
+- The demo includes a vulnerable scenario and a corrected scenario.
+- Results are labelled as demonstration results.
+- Users can complete the workflow from scanning through verification.
+- No live third-party target is scanned.
+
+## 9. Non-Functional Requirements
+
+### Security
+
+- Validate all uploaded input.
+- Prevent archive path traversal.
+- Restrict file access and scanning resources.
+- Avoid executing uploaded application code on the main server.
+- Redact credentials from logs and reports.
+- Protect server-side environment variables.
+- Prevent unauthorized remote testing.
+- Use isolated execution environments for checks that require execution.
+
+### Performance
+
+- Display progress and meaningful status updates.
+- Enforce configurable scan timeouts.
+- Keep the basic demonstration responsive.
+- Report large or unsupported projects clearly.
+
+The exact performance targets should be established through testing rather than assumed.
+
+### Usability
+
+- Provide simple explanations for non-experts.
+- Use clear severity and status labels.
+- Provide useful error messages.
+- Support keyboard navigation and accessible contrast.
+- Work across desktop and mobile layouts.
+
+### Reliability
+
+- Use deterministic checks for security findings.
+- Maintain consistency between scan results and reports.
+- Record verification outcomes.
+- Handle malformed uploads and scanner failures gracefully.
+
+### Maintainability
+
+- Keep scanning rules modular.
+- Separate interface, scanning logic, reporting, and optional AI integration.
+- Include automated tests and setup documentation.
+
+## 10. User Workflow
+
+1. The user opens VibeGuard.
+2. The user uploads a project or launches the controlled demo.
+3. The system validates the input.
+4. The scanner executes supported checks.
+5. The user reviews findings and supporting evidence.
+6. The user opens a finding and reads the explanation.
+7. The user copies the remediation prompt or corrects the sample code.
+8. The system reruns the relevant check.
+9. The user reviews the verification result.
+10. The user downloads the security report.
+
+## 11. Technical Architecture
+
+The implementation should use the stack supported by the development environment.
+
+**Preferred architecture:**
+
+- **Frontend:** React or Next.js with TypeScript.
+- **Styling:** Tailwind CSS.
+- **Backend:** Python FastAPI or an equivalent supported backend.
+- **Security engine:** Deterministic Python rules and established scanning tools.
+- **Authorization testing:** An isolated API test environment; Playwright may be added for browser automation.
+- **Database:** SQLite for a lightweight prototype, or PostgreSQL/Supabase if persistent storage is required.
+- **AI integration:** Optional server-side model integration for explanations and remediation prompts.
+- **Reports:** JSON or HTML export, with optional PDF generation.
+
+The architecture must be adapted to the actual OmniRush execution and deployment environment. A simpler supported stack is preferable to an incomplete multi-service architecture.
+
+## 12. Data Model
+
+### Scan
+
+- scan_id
+- created_at
+- input_type
+- file_count
+- scan_status
+- summary
+
+### Finding
+
+- finding_id
+- scan_id
+- rule_id
+- title
+- category
+- severity
+- confidence_status
+- file_path
+- line_number
+- redacted_evidence
+- remediation
+- verification_status
+
+### Verification Run
+
+- verification_id
+- finding_id
+- executed_at
+- test_type
+- result
+- details
+
+### Report
+
+- report_id
+- scan_id
+- generated_at
+- format
+- file_reference
+
+For the first MVP, these records may be maintained in memory or a lightweight database, depending on the hosting environment. Persistent storage must be used if records need to survive application restarts.
+
+## 13. User Interface Requirements
+
+### Landing Page
+
+- Brand identity and tagline.
+- Clear problem and solution.
+- Primary scan action.
+- Interactive demo action.
+- Feature overview and workflow.
+- Security limitations and authorization notice.
+
+### Dashboard
+
+- Scan summary.
+- Findings by severity.
+- Recent scans.
+- Clear scan status.
+- Demo-data indicator where relevant.
+
+### Scan Page
+
+- Project upload.
+- Input validation.
+- Scan options.
+- Progress indicator.
+- Completion and error states.
+
+### Findings Page
+
+- Filterable finding list.
+- Evidence and affected files.
+- Severity and confidence.
+- Remediation instructions.
+- Copyable prompts.
+- Verification action.
+
+### Report Page
+
+- Summary of completed checks.
+- Findings and recommendations.
+- Verification status.
+- Download action.
+- Limitations.
+
+**Visual direction:** dark charcoal, electric-green accents, blue highlights, modern typography, accessible contrast, clean layouts, and responsive design.
+
+## 14. Fourteen-Day MVP Development Plan
+
+| Day | Deliverable |
+|---|---|
+| 1 | Finalize requirements, scope, and architecture |
+| 2 | Set up the application and repository |
+| 3 | Implement landing page and navigation |
+| 4 | Implement project upload and validation |
+| 5 | Implement secret and credential detection |
+| 6 | Add supported configuration checks |
+| 7 | Build findings dashboard |
+| 8 | Add detailed findings and remediation guidance |
+| 9 | Build vulnerable and corrected two-user demo |
+| 10 | Implement fix verification |
+| 11 | Implement report generation |
+| 12 | Add automated tests and security hardening |
+| 13 | Fix defects, polish the UI, and deploy |
+| 14 | Run final acceptance tests and prepare the hackathon demonstration |
+
+The schedule is a target plan. Core scanning and the controlled authorization test should take priority over optional integrations.
+
+## 15. Testing Plan
+
+The MVP shall be tested for:
+
+- Valid project uploads.
+- Invalid and malformed archives.
+- Archive path traversal attempts.
+- Secret detection and redaction.
+- File and line reporting.
+- Duplicate findings.
+- Scanner error handling.
+- Vulnerable two-user authorization.
+- Corrected two-user authorization.
+- Verification after a correction.
+- Report generation.
+- Responsive UI behavior.
+- Correct separation of demonstration and real scan results.
+
+Use synthetic credentials and synthetic personal information in all demonstration fixtures.
+
+## 16. Success Metrics
+
+Measure the MVP using:
+
+- Number of seeded security issues correctly detected.
+- Number of findings supported by reproducible evidence.
+- False-positive rate on the test fixture set.
+- Successful verification of corrected test cases.
+- Completion of the full user journey.
+- Number of automated tests passed.
+- Time required to complete the demonstration.
+
+Targets should be set after establishing a test dataset. Do not claim performance figures without measurement.
+
+## 17. Risks and Mitigation
+
+**Risk: False positives.**  
+Mitigation: use deterministic rules, evidence, confidence labels, and test fixtures.
+
+**Risk: False negatives.**  
+Mitigation: disclose scan coverage and limitations; do not claim comprehensive security.
+
+**Risk: Unsafe handling of uploaded code.**  
+Mitigation: validate archives, restrict access, enforce resource limits, and isolate execution.
+
+**Risk: Incorrect AI-generated fixes.**  
+Mitigation: require human review and verify corrections using the relevant security check.
+
+**Risk: Limited development time.**  
+Mitigation: prioritize source-code scanning, the controlled two-user test, and fix verification.
+
+**Risk: Unsupported integrations.**  
+Mitigation: build a standalone workflow that does not depend on paid external services.
+
+## 18. Future Enhancements
+
+After the MVP is validated, possible enhancements include:
+
+- GitHub integration and automated rescanning.
+- Additional framework-specific security rules.
+- Supported live-application testing with ownership verification.
+- AI coding assistant integrations.
+- MCP server support.
+- Multilingual explanations.
+- PDF reports and shareable verification summaries.
+- College and hackathon security dashboards.
+- Optional paid plans for individual builders and teams.
+
+These features are not required for the first functional MVP.
+
+## 19. Final MVP Acceptance Criteria
+
+VibeGuard is ready for hackathon demonstration when:
+
+1. The application launches successfully.
+2. A user can upload a supported source-code archive.
+3. The scanner executes real security checks.
+4. Findings include evidence and remediation guidance.
+5. The controlled vulnerable authorization test fails as expected.
+6. The corrected authorization test passes.
+7. Verification results are based on executed checks.
+8. A report can be downloaded.
+9. The interface works on desktop and mobile.
+10. Tests, limitations, and setup instructions are documented.
+
+## 20. Conclusion
+
+VibeGuard aims to bridge the gap between fast AI-assisted development and responsible application security. By combining deterministic security checks, an understandable findings interface, controlled authorization testing, and repeatable fix verification, the MVP demonstrates a practical way to help beginner developers identify and address common security risks before deployment.
+
+The Indiathon version will focus on a small, functional, demonstrable workflow. Its success will be evaluated through actual test results and usability rather than unsupported claims that an application is completely secure.
