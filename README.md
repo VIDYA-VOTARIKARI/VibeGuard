@@ -10,13 +10,13 @@ VibeGuard is a hackathon-ready, evidence-first security scanner for applications
 - Workspace dashboard derived only from actual scan records; illustrative landing-page demo content does not contribute to counts.
 - Shared lifecycle: `Pending` → `Running` → `Completed`, `Completed with limitations`, or `Failed`. Every attempt has a UUID and starts with empty findings, inventory, and verification history. Authorization, invalid input, unsafe destinations, execution failures, and unavailable services remain distinct.
 - Source ZIP upload with:
-  - 10 MB archive-size limit.
-  - ZIP-only validation.
+  - 100 MB archive-size limit and 500 MB maximum extracted size.
+  - ZIP-only validation; the archive is read and scanned in the browser, and only the completed scan record is sent to the API.
   - raw central/local ZIP record validation before inflation, followed by streamed byte limits and CRC validation of inspected files.
-  - file-count limit and supported-text-file allowlist.
-  - 25 MB maximum extracted-size and 1 MB maximum supported-text-file limits.
+  - 50,000-entry limit, 10 MB maximum supported-text-file size, and a supported-text-file allowlist.
   - unsafe compression-ratio rejection for decompression-bomb style archives.
   - archive path-traversal rejection (`/absolute/path` and `..` segments).
+  - streamed progress from archive validation through scan completion.
   - no execution of uploaded application code.
 - Deterministic local checks for:
   - Stripe-like, Google, GitHub, AWS, private-key, database-credential, and secret-like API key patterns.
@@ -52,6 +52,7 @@ VibeGuard is a hackathon-ready, evidence-first security scanner for applications
 - URL evidence includes validated TLS/hostname connection status, final response code, redirect count/final origin, missing security headers, cookie attributes with names/values redacted, and qualified observed technology headers. Error/block/login responses do not claim successful HTTP availability. Certificate revocation and a full TLS configuration audit are not implemented.
 - URL scans explicitly separate observable headers/cookies/technology signals from source and dependency analysis. Exact package versions are not inferred from a website fingerprint.
 - Website Patch Intelligence says: **Dependency advisory check unavailable: exact dependency versions could not be established.** A separately scanned ZIP can be associated only after confirmation; this stores a pointer, not copied findings or dependency evidence, and does not prove deployment identity.
+- Source archives are never sent to the API; only the completed scan record is submitted. Saved scan records are capped at 32 MB per request and in storage.
 - Saving failure does not discard completed results or pretend history was saved. API history uses server-side owner checks, `checkedAt` ordering, validated record shapes, and serialized atomic file replacement. Tests exercise concurrent writes, rollback after failures, owner isolation, and reading history after a server restart.
 - No paid API key or server-side model is required for the basic workflow.
 
@@ -109,7 +110,7 @@ No paid AI API key is required. The application intentionally does not expose an
 - The frontend still keeps the active workspace scan in memory. Authenticated history persists in the API data directory and is only as durable as the configured storage volume.
 - The current persistence implementation is a local JSON store intended for a single-instance deployment or prototype. A production multi-instance deployment should replace it with a transactional database and shared session strategy before claiming enterprise production readiness.
 - Sessions remain in memory; server restarts require signing in again. Custom local authentication has not been replaced by an established identity provider. Do not treat this repair as a public-production authentication/security certification. Recovery, account deletion/retention automation, shared sessions, and multi-process storage are not implemented.
-- ZIP support is intentionally bounded: UTF-8 names, STORE/DEFLATE, at most 350 entries. ZIP64, encryption, multipart/self-extracting layouts, links/special files, ambiguous paths, and unsafe archives are rejected. Ignored/unsupported content is not inflated or CRC-checked and appears in the coverage limitations.
+- ZIP support is intentionally bounded: UTF-8 names, STORE/DEFLATE, at most 50,000 entries, 100 MB archives, 500 MB extracted output, and 10 MB per supported text file. ZIP64, encryption, multipart/self-extracting layouts, links/special files, ambiguous paths, and unsafe archives are rejected. Ignored/unsupported content is not inflated or CRC-checked and appears in the coverage limitations.
 - Yarn/pnpm support is a bounded block-layout parser, not general YAML evaluation. Unsupported layouts remain limited/unavailable. An exact version declaration is not proof of the version actually deployed.
 - Static checks cover supported text files and deterministic patterns; they do not prove the absence of vulnerabilities.
 - Dependency matching depends on a reachable OSV.dev request. If the advisory service is unavailable, the scan explicitly says `unavailable` and does not claim a clean dependency result.
@@ -123,8 +124,8 @@ No paid AI API key is required. The application intentionally does not expose an
 
 ## Verification in this workspace — October 25, 2026
 
-- `npm test` — 134 tests passed across 7 files: ZIP/parser limits, source rules, advisory matching/failure/pagination, verification, reports, redaction, lifecycle/no-stale-results, API errors, and rendered views.
-- `npm run test:server` — 60 tests passed: actual controlled HTTP/TLS transport, trusted/untrusted/wrong-host certificates, DNS cancellation, restricted destinations, rebinding, redirects, deadlines, response limits, concurrency, authorization, redaction, and persistent-history failures/isolation/restarts.
+- `npm test` — 136 tests passed across 7 files: ZIP/parser limits, source rules, advisory matching/failure/pagination, verification, reports, redaction, lifecycle/no-stale-results, API errors, and rendered views.
+- `npm run test:server` — 61 tests passed: actual controlled HTTP/TLS transport, trusted/untrusted/wrong-host certificates, DNS cancellation, restricted destinations, rebinding, redirects, deadlines, response limits, concurrency, authorization, redaction, and persistent-history failures/isolation/restarts.
 - `npm run test:integration` — 1 full-stack integration test passed: generated ZIP → real frontend pipeline → reports; signup/explicit import → authorized local TLS target through Vite proxy and Node API → URL results → confirmed source association → saved history/report → logout/login and cross-user denial. OSV responses and network dialing are controlled fixtures; this is not a live website vulnerability claim or browser-click test.
 - `npm run build` — TypeScript and Vite production output passed.
 - `npm audit --audit-level=high` — 0 reported dependency vulnerabilities (not proof of application security).

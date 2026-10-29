@@ -12,7 +12,7 @@ export class ApiRequestError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 25_000)
+  const timeout = setTimeout(() => controller.abort(), 60_000)
   try {
     let response: Response
     try { response = await fetch(path, { ...init, signal: controller.signal, credentials: 'include', headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } }) }

@@ -33,6 +33,17 @@ describe('rendered workflow views', () => {
     expect(html).not.toContain('Choose another scan')
   })
 
+  it('renders reported progress without inventing it', () => {
+    const html = renderToStaticMarkup(createElement(ScanInput, {
+      targetUrl: '', setTargetUrl: noop, websiteUrl: '', setWebsiteUrl: noop,
+      selectedFile: null, onFile: noop, scanTypes: [], toggleScanType: noop,
+      authorized: true, setAuthorized: noop, error: '', isScanning: true, phase: 'Extracting supported text', progress: 42, scan: { ...pendingScan(), scanStatus: 'Running' },
+      onStartZip: noop, onStartUrl: noop, onDemo: noop, onReset: noop,
+    }))
+    expect(html).toContain('42%')
+    expect(html).toContain('role="progressbar"')
+  })
+
   it('has no seeded dashboard rows or unsafe empty-finding actions', () => {
     const html = renderToStaticMarkup(createElement(ScanDashboard, { scans: [], onOpen: noop, onNew: noop }))
     expect(html).toContain('No scans yet')

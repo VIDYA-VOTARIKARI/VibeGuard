@@ -49,6 +49,7 @@ import { getCurrentUser, listSavedScans, saveScan, signIn, signOut, signUp, type
 import { actualRecords, associateSource, dependencyLabel, dependencyOutcome as describeDependencies, executeScan, isCompleted, pendingScan, scanKind, scanRecord, upsertScan, type ScanAttempt } from './workflow'
 import { ScanInput } from './ScanInput'
 import { ReportPreview, SavedHistory, ScanDashboard, SourceAssociation } from './ScanViews'
+import { MAX_ARCHIVE_BYTES, formatMegabytes } from './limits'
 
 const demoDate = new Date('2026-10-24T12:30:00.000Z').toISOString()
 
@@ -178,6 +179,7 @@ function App() {
   const [scanError, setScanError] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanPhase, setScanPhase] = useState('')
+  const [scanProgress, setScanProgress] = useState<number | undefined>(undefined)
   const [demoFixed, setDemoFixed] = useState(false)
   const [demoResults, setDemoResults] = useState<AuthCheckResult[] | null>(null)
   const [demoRunning, setDemoRunning] = useState(false)
@@ -265,9 +267,9 @@ function App() {
       setScanError('Only .zip archives are accepted. VibeGuard never executes uploaded application code.')
       return
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > MAX_ARCHIVE_BYTES) {
       setSelectedFile(null)
-      setScanError('This archive is larger than the 10 MB MVP limit. Split the project or upload a focused source bundle.')
+      setScanError(`This archive is larger than the ${formatMegabytes(MAX_ARCHIVE_BYTES)} limit. Reduce the archive or upload a focused source bundle.`)
       return
     }
     setSelectedFile(file)
@@ -284,9 +286,14 @@ function App() {
     setPersistenceNotice('')
     setFilter('All')
     setSelectedFindingId('')
+    setScanProgress(0)
     try {
-      const outcome = await executeScan(attempt, (scan, phase) => {
-        if (accountEpoch.current === epoch) { setActiveScan(scan); setScanPhase(phase) }
+      const outcome = await executeScan(attempt, (scan, phase, progress) => {
+        if (accountEpoch.current === epoch) {
+          setActiveScan(scan)
+          setScanPhase(phase)
+          if (progress !== undefined) setScanProgress(progress)
+        }
       })
       if (accountEpoch.current !== epoch) return
       const result = compare ? mergeVerifiedRescan(previous, outcome.scan) : outcome.scan
@@ -377,7 +384,7 @@ function App() {
   const renderView = () => {
     switch (view) {
       case 'dashboard': return <ScanDashboard scans={records} onOpen={openScan} onNew={() => navigate('scan')} />
-      case 'scan': return <ScanInput targetUrl={targetUrl} setTargetUrl={setTargetUrl} selectedFile={selectedFile} onFile={handleFile} scanTypes={scanTypes} toggleScanType={toggleScanType} authorized={authorized} setAuthorized={setAuthorized} error={scanError} isScanning={isScanning} phase={scanPhase} scan={activeScan} onStartZip={startScan} onStartUrl={startUrlScan} onDemo={() => navigate('demo')} onReset={() => setScanError('')} websiteUrl={websiteUrl} setWebsiteUrl={setWebsiteUrl} />
+      case 'scan': return <ScanInput targetUrl={targetUrl} setTargetUrl={setTargetUrl} selectedFile={selectedFile} onFile={handleFile} scanTypes={scanTypes} toggleScanType={toggleScanType} authorized={authorized} setAuthorized={setAuthorized} error={scanError} isScanning={isScanning} phase={scanPhase} progress={scanProgress} scan={activeScan} onStartZip={startScan} onStartUrl={startUrlScan} onDemo={() => navigate('demo')} onReset={() => setScanError('')} websiteUrl={websiteUrl} setWebsiteUrl={setWebsiteUrl} />
       case 'history': return <SavedHistory scans={savedScans} loading={historyLoading} onOpen={openScan} onSignIn={() => { setAuthMode('login'); setAuthOpen(true) }} email={currentUser?.email} />
       case 'findings': return <FindingsView scan={activeScan} findings={filteredFindings} allFindings={allFindings} selected={selectedFinding} filter={filter} setFilter={setFilter} onSelect={setFinding} onCopy={copyPrompt} copied={copied} onDemoVerify={() => navigate('demo')} />
       case 'demo': return <DemoView fixed={demoFixed} setFixed={(fixed) => { setDemoFixed(fixed); setDemoResults(null) }} results={demoResults} running={demoRunning} onRun={() => runDemo()} onApply={applyCorrection} onFindings={() => openScan(demoScan)} />

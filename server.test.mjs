@@ -487,7 +487,13 @@ test('saved report shapes validate lifecycle statuses, nested data, association 
   assert.ok(associated.findings.every((finding) => finding.scanId === 'valid'))
   assert.throws(() => safeScanPayload({ ...scan, findings: [...scan.findings, scan.findings[0]] }, 'owner'), { code: 'INVALID_INPUT' })
   assert.throws(() => safeScanPayload({ ...scan, findings: [{ ...scan.findings[0], scanId: 'other' }] }, 'owner'), { code: 'INVALID_INPUT' })
-  assert.throws(() => safeScanPayload(scanRecord('huge', { limitations: Array(30).fill('é'.repeat(90_000)) }), 'owner'), { code: 'INVALID_INPUT' })
+  assert.throws(() => safeScanPayload(scanRecord('huge', { limitations: Array(400).fill('é'.repeat(90_000)) }), 'owner'), { code: 'INVALID_INPUT' })
+})
+
+test('accepts scan records between the former 2 MB and new 32 MB storage limit', () => {
+  const large = safeScanPayload(scanRecord('large', { limitations: Array(100).fill('x'.repeat(90_000)) }), 'owner')
+  assert.equal(large.scanId, 'large')
+  assert.ok(Buffer.byteLength(JSON.stringify(large)) > 2 * 1024 * 1024)
 })
 
 test('history rejects malformed report shapes through HTTP and accepts current result contracts', async (t) => {

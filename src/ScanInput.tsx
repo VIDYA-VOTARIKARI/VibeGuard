@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Check, FileArchive, Globe2, LockKeyhole, RefreshCw, UploadCloud, X } from 'lucide-react'
 import type { ScanSummary } from './types'
+import { MAX_ARCHIVE_BYTES, formatFileSize, formatMegabytes } from './limits'
 
 interface Props {
   targetUrl: string; setTargetUrl: (value: string) => void
@@ -8,7 +9,7 @@ interface Props {
   selectedFile: File | null; onFile: (file: File | undefined) => void
   scanTypes: string[]; toggleScanType: (type: string) => void
   authorized: boolean; setAuthorized: (value: boolean) => void
-  error: string; isScanning: boolean; phase: string; scan: ScanSummary
+  error: string; isScanning: boolean; phase: string; progress?: number; scan: ScanSummary
   onStartZip: () => void; onStartUrl: (target: string, confirmed: boolean) => void
   onDemo: () => void; onReset: () => void
 }
@@ -30,8 +31,11 @@ export function ScanInput(props: Props) {
     <div className="page-header"><div><div className="eyebrow">New security scan</div><h1>Check your next launch.</h1><p>Source evidence and authorized website observations stay separate.</p></div><span className="pill safe-pill"><LockKeyhole size={13} /> Read-only checks</span></div>
     <input ref={picker} id="source-upload-production" type="file" accept=".zip,application/zip" hidden onChange={(event) => { props.onFile(event.target.files?.[0]); event.target.value = '' }} />
     {props.isScanning ? <div className="panel scan-status-panel" role="status" aria-live="polite">
-      <div className="scan-status-icon running"><RefreshCw className="spin-icon" size={23} /></div><h3>{props.scan.scanStatus}</h3><p>{props.phase}</p><small>{props.scan.scanId}</small>
-      <p>Waiting for actual check results. No estimated percentage or success is reported.</p>
+      <div className="scan-status-icon running"><RefreshCw className="spin-icon" size={23} /></div><h3>{props.scan.scanStatus}</h3><p>{props.phase}</p>
+      {props.progress !== undefined && <div className="scan-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(props.progress)}><i style={{ width: `${Math.max(0, Math.min(100, props.progress))}%` }} /></div>}
+      {props.progress !== undefined && <small>{Math.round(props.progress)}%</small>}
+      <small>{props.scan.scanId}</small>
+      <p>Progress only reflects completed local processing. No success is reported until checks finish.</p>
     </div> : <>
       {props.error && <div className="form-error" role="alert"><AlertTriangle size={17} /><div><strong>{props.scan.errorCode === 'AUTHORIZATION_REQUIRED' ? 'Authorization not confirmed' : props.scan.errorCode === 'EXTERNAL_UNAVAILABLE' ? 'Service unavailable' : props.scan.scanStatus === 'Failed' ? 'Scan failed' : 'Input needs attention'}</strong><p>{props.error}</p></div><button className="button ghost" onClick={props.onReset}>Dismiss</button></div>}
       <div className="scan-mode-tabs">
@@ -44,7 +48,7 @@ export function ScanInput(props: Props) {
           {mode === 'zip' ? <>
             <div className="field-group"><label htmlFor="project-name">Project identifier <span>optional</span></label><div className="input-wrap"><FileArchive size={17} /><input id="project-name" value={props.targetUrl} onChange={(event) => props.setTargetUrl(event.target.value)} placeholder="e.g. shop-backend" /></div></div>
             <div className="dropzone" role="button" tabIndex={0} aria-label="Choose source ZIP" onClick={chooseZip} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); chooseZip() } }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); props.onFile(event.dataTransfer.files[0]) }}>
-              <div className="upload-icon"><UploadCloud size={23} /></div><strong>{props.selectedFile?.name ?? 'Drop your source ZIP here'}</strong><span>{props.selectedFile ? `${(props.selectedFile.size / 1024).toFixed(1)} KB · click to replace` : 'or click to browse · maximum 10 MB'}</span>
+              <div className="upload-icon"><UploadCloud size={23} /></div><strong>{props.selectedFile?.name ?? 'Drop your source ZIP here'}</strong><span>{props.selectedFile ? `${formatFileSize(props.selectedFile.size)} · click to replace` : `or click to browse · maximum ${formatMegabytes(MAX_ARCHIVE_BYTES)}`}</span>
             </div>
             {props.selectedFile && <button className="text-button" onClick={() => props.onFile(undefined)}>Clear selected ZIP</button>}
           </> : <div className="field-group"><label htmlFor="website-url">Website URL</label><div className="input-wrap"><Globe2 size={17} /><input id="website-url" type="url" value={props.websiteUrl} onChange={(event) => { props.setWebsiteUrl(event.target.value); setUrlAuthorized(false) }} placeholder="https://your-authorized-website.example" /></div><small>HTTPS on port 443. Private networks, credentials, and unsafe redirects are rejected.</small></div>}

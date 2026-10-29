@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readZip, scanTextFiles, scanZip, type ScanChecks } from './scanner'
 import { readSourceZip } from './zip'
+import { MAX_ARCHIVE_BYTES, MAX_ARCHIVE_ENTRIES, MAX_EXTRACTED_BYTES, MAX_SOURCE_FILE_BYTES } from './limits'
 import { dependencyKey, type OsvLookup } from './intelligence'
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
@@ -70,10 +71,12 @@ describe('generated e-commerce ZIP flow', () => {
     expect(result.sourceFiles).toHaveLength(7)
     expect(result.dependencies).toEqual([expect.objectContaining({ packageName: 'express', declaredVersion: '^4.18.2', resolvedVersion: '4.18.2', lookupStatus: 'no-match' })])
     expect(result.runtimes).toEqual(expect.arrayContaining([expect.objectContaining({ sourceFile: 'shop/.nvmrc', version: '20.19.0' }), expect.objectContaining({ sourceFile: 'shop/Dockerfile', version: '20-alpine' })]))
-    expect(phases).toEqual([
-      'Validating archive headers and safety limits', 'Extracting supported text with streamed byte and CRC checks',
+    expect([...new Set(phases)]).toEqual([
+      'Validating archive headers and safety limits', 'Reading the ZIP central directory',
+      'Extracting supported text with streamed byte and CRC checks', 'Archive extraction complete',
       'Running selected static source checks', 'Inventorying nested manifests and lockfiles',
       'Matching exact dependency versions against OSV', 'Detecting runtime declarations and finalizing coverage',
+      'Scan complete',
     ])
   })
 
@@ -207,21 +210,40 @@ describe('ZIP safety before and during decompression', () => {
   })
 
   it('rejects archive size and raw entry count limits before decompression', async () => {
-    await expect(readZip(new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'big.zip'))).rejects.toThrow('10 MB')
-    const bytes = await archive(Object.fromEntries(Array.from({ length: 351 }, (_, i) => [`${i}.js`, 'a'])))
+    await expect(readZip({ size: MAX_ARCHIVE_BYTES + 1, name: 'big.zip' } as File)).rejects.toThrow('100 MB')
+    const bytes = await archive({ 'source.js': 'a' })
+    const { view, end } = headers(bytes)
+    view.setUint16(end + 8, MAX_ARCHIVE_ENTRIES + 1, true); view.setUint16(end + 10, MAX_ARCHIVE_ENTRIES + 1, true)
     const inflater = vi.fn(); vi.stubGlobal('DecompressionStream', inflater)
-    await expect(readZip(uploaded(bytes))).rejects.toThrow('350')
+    await expect(readZip(uploaded(bytes))).rejects.toThrow('50,000')
     expect(inflater).not.toHaveBeenCalled()
   })
 
+  it('accepts and scans an archive between the former 10 MB cap and the 100 MB limit', async () => {
+    const bytes = await archive({ 'data.bin': new Uint8Array(12 * 1024 * 1024), 'src/index.js': 'export const ok = true' }, { compression: 'STORE' })
+    expect(bytes.length).toBeGreaterThan(10 * 1024 * 1024)
+    expect((await readSourceZip(uploaded(bytes))).files).toEqual([{ path: 'src/index.js', content: 'export const ok = true' }])
+    const result = await scanZip(uploaded(bytes), 'large archive', {}, noMatches)
+    expect(result.sourceFiles).toEqual(['src/index.js'])
+    expect(result.scanStatus).not.toBe('Failed')
+  })
+
   it.each([
-    ['source.js', 1_000_001, '1 MB per-file'],
-    ['ignored.bin', 26 * 1024 * 1024, '25 MB safety'],
+    ['source.js', MAX_SOURCE_FILE_BYTES + 1, '10 MB per-file'],
     ['bomb.bin', 2 * 1024 * 1024, 'compression ratio'],
   ] as const)('rejects size/ratio metadata for %s without constructing an inflater', async (name, size, message) => {
     const bytes = await archive({ [name]: new Uint8Array(size) })
     const inflater = vi.fn(); vi.stubGlobal('DecompressionStream', inflater)
     await expect(readZip(uploaded(bytes))).rejects.toThrow(message)
+    expect(inflater).not.toHaveBeenCalled()
+  })
+
+  it('rejects total extracted size metadata above 500 MB before decompression', async () => {
+    const bytes = await archive({ 'data.bin': new Uint8Array([1, 2, 3]) })
+    const { view, central } = headers(bytes)
+    view.setUint32(central + 24, MAX_EXTRACTED_BYTES + 1, true)
+    const inflater = vi.fn(); vi.stubGlobal('DecompressionStream', inflater)
+    await expect(readZip(uploaded(bytes))).rejects.toThrow('500 MB safety limit')
     expect(inflater).not.toHaveBeenCalled()
   })
 
@@ -235,8 +257,12 @@ describe('ZIP safety before and during decompression', () => {
   })
 
   it('counts UTF-8 output bytes rather than JavaScript characters', async () => {
-    const bytes = await archive({ 'wide.js': '界'.repeat(400_000) })
-    await expect(readZip(uploaded(bytes))).rejects.toThrow('1 MB per-file')
+    let seed = 1
+    const chars = Array.from({ length: 3_500_000 }, () => { seed = (seed * 1664525 + 1013904223) >>> 0; return String.fromCodePoint(0x4e00 + (seed % 20992)) })
+    const bytes = await archive({ 'wide.js': chars.join('') })
+    const { view, central, local } = headers(bytes)
+    view.setUint32(local + 22, 3_500_000, true); view.setUint32(central + 24, 3_500_000, true)
+    await expect(readZip(uploaded(bytes))).rejects.toThrow('Actual streamed output exceeds')
   })
 
   it('checks streamed CRC after applying limits', async () => {

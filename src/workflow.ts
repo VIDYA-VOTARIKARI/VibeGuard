@@ -23,11 +23,11 @@ export type ScanOutcome = { scan: ScanSummary; saved: boolean; persistenceError?
 // Transport failures and incomplete coverage cannot inherit a successful scan.
 export async function executeScan(
   attempt: ScanAttempt,
-  update: (scan: ScanSummary, phase: string) => void,
+  update: (scan: ScanSummary, phase: string, progress?: number) => void,
   services = { zip: scanZip, url: runUrlScan },
 ): Promise<ScanOutcome> {
   let scan = pendingScan(attempt.target.trim() || (attempt.type === 'Source upload' ? attempt.file?.name : undefined) || 'New scan', attempt.type)
-  update(scan, 'Pending · validating input and authorization')
+  update(scan, 'Pending · validating input and authorization', 0)
   let executing = false
   try {
     if (!attempt.authorized) throw new ApiRequestError('Confirm that you own or are authorized to test this application.', 'AUTHORIZATION_REQUIRED')
@@ -38,10 +38,10 @@ export async function executeScan(
       if (url.protocol !== 'https:' || url.username || url.password || url.port) throw new ApiRequestError('Use an HTTPS URL without credentials, on port 443.', 'INVALID_INPUT')
     }
     scan = { ...scan, scanStatus: 'Running' }
-    update(scan, attempt.type === 'Website URL' ? 'Running · waiting for DNS, TLS, redirects, and response checks' : 'Running · validating archive')
+    update(scan, attempt.type === 'Website URL' ? 'Running · waiting for DNS, TLS, redirects, and response checks' : 'Running · validating archive', attempt.type === 'Source upload' ? 1 : undefined)
     executing = true
     const result: ScanOutcome = attempt.type === 'Source upload'
-      ? { scan: await services.zip(attempt.file!, scan.target, attempt.checks, undefined, { scanId: scan.scanId, onProgress: (phase) => update(scan, phase) }), saved: false }
+      ? { scan: await services.zip(attempt.file!, scan.target, attempt.checks, undefined, { scanId: scan.scanId, onProgress: (phase, progress) => update(scan, phase, progress) }), saved: false }
       : await services.url(attempt.target, attempt.authorized, scan.scanId)
     if (result.scan.scanId !== scan.scanId || scanKind(result.scan) !== attempt.type || result.scan.findings.some((finding) => finding.scanId !== scan.scanId)) {
       throw new ApiRequestError('The scanner returned results for a different scan. No result was accepted.', 'INVALID_RESULT')
@@ -50,7 +50,7 @@ export async function executeScan(
     if (isCompleted(result.scan) && !result.scan.coverage.some((check) => (check.status === 'passed' && check.id !== 'source' && check.id !== 'runtime') || (check.id === 'dependencies' && (check.responseCount ?? 0) > 0))) {
       throw new ApiRequestError('No supported checks completed.', 'NO_SUPPORTED_CHECKS')
     }
-    update(result.scan, result.scan.scanStatus)
+    update(result.scan, result.scan.scanStatus, 100)
     return result
   } catch (error) {
     scan = {
@@ -60,7 +60,7 @@ export async function executeScan(
       coverage: [{ id: 'execution', label: executing ? 'Scan execution' : 'Input and authorization validation', status: 'failed', details: error instanceof Error ? error.message : 'No completed checks.' }],
       limitations: ['No completed scan result is available for this attempt.'],
     }
-    update(scan, 'Failed')
+    update(scan, 'Failed', 100)
     return { scan, saved: false }
   }
 }

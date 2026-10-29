@@ -332,11 +332,14 @@ function detectRuntimes(files: SourceFile[]): RuntimeEvidence[] {
   return runtimes
 }
 
-function coverageFor(checks: Required<ScanChecks>, files: SourceFile[], dependencyStatus: Omit<CheckCoverage, 'id' | 'label'>, runtimes: RuntimeEvidence[], skipped: string[] = []): CheckCoverage[] {
+const ANALYSIS_FILE = /^(?:package(?:-lock)?\.json|npm-shrinkwrap\.json|composer\.(?:json|lock)|pipfile(?:\.lock)?|requirements(?:[-.][\w.-]+)?\.txt|yarn\.lock|pnpm-lock\.yaml|pyproject\.toml|poetry\.lock|uv\.lock|gemfile(?:\.lock)?|cargo\.(?:toml|lock)|go\.(?:mod|sum)|pom\.xml|build\.gradle(?:\.kts)?|gradle\.lockfile|settings\.gradle(?:\.kts)?|bun\.lockb?|deno\.(?:jsonc?|lock)|\.nvmrc|\.node-version|\.python-version|\.ruby-version|\.tool-versions|dockerfile(?:\..+)?|containerfile|podfile(?:\.lock)?|mix\.exs|package\.swift)$/i
+const retainsContent = (path: string) => ANALYSIS_FILE.test(path.split('/').pop() ?? '')
+
+function coverageFor(checks: Required<ScanChecks>, files: Array<Pick<SourceFile, 'path'>>, dependencyStatus: Omit<CheckCoverage, 'id' | 'label'>, runtimes: RuntimeEvidence[], skipped: string[] = [], skippedCount = skipped.length): CheckCoverage[] {
   const code = files.some((file) => /\.(?:[cm]?js|jsx|[cm]?ts|tsx|py|rb|go|java|php|sql)$/i.test(file.path))
   const check = (id: keyof ScanChecks, label: string, applicable: boolean, details: string): CheckCoverage => ({ id, label, status: checks[id] && applicable ? 'passed' : 'not-run', details: !checks[id] ? 'Disabled by the scan options.' : !applicable ? 'No applicable supported source files were available.' : details })
   return [
-    { id: 'source', label: 'Source archive validation', status: files.length ? 'passed' : 'failed', details: `${files.length} supported text files inspected without executing uploaded code.`, skippedCount: skipped.length, skippedDetails: skipped },
+    { id: 'source', label: 'Source archive validation', status: files.length ? 'passed' : 'failed', details: `${files.length} supported text files inspected without executing uploaded code.${skippedCount ? ` ${skippedCount} entries were skipped.` : ''}`, skippedCount, skippedDetails: skipped },
     check('secrets', 'Secrets & credentials', files.length > 0, 'Deterministic secret and credential patterns ran.'),
     check('configuration', 'Configuration patterns', files.length > 0, 'Environment, framework, CORS, and database policy patterns ran.'),
     check('authorization', 'Authorization heuristics', code, 'Static ownership heuristics ran; this does not prove exploitability.'),
@@ -355,7 +358,7 @@ function completion(coverage: CheckCoverage[]) {
   return { limitations, scanStatus: !meaningful ? 'Failed' as const : limitations.length ? 'Completed with limitations' as const : 'Completed' as const, ...(!meaningful ? { errorCode: 'NO_SUPPORTED_CHECKS', error: 'No meaningful supported checks completed.' } : {}) }
 }
 
-export type ZipScanOptions = { scanId?: string; onProgress?: (phase: string) => void }
+export type ZipScanOptions = { scanId?: string; onProgress?: (phase: string, progress?: number) => void }
 
 export async function scanZip(
   file: File,
@@ -364,14 +367,22 @@ export async function scanZip(
   advisoryLookup = lookupOsvAdvisories,
   options: ZipScanOptions = {},
 ): Promise<ScanSummary> {
-  const { files, skipped } = await readSourceZip(file, options.onProgress)
   const checks = { ...defaultChecks, ...selectedChecks }
   const scanId = options.scanId ?? crypto.randomUUID()
-  options.onProgress?.('Running selected static source checks')
-  const findings = files.flatMap((sourceFile) => scanFile(sourceFile, checks)).map((item) => findingWithScan(item, scanId, item.verificationMethod ?? 'Review the source evidence and rerun the relevant check after remediation.'))
-  options.onProgress?.('Inventorying nested manifests and lockfiles')
-  if (checks.dependencies) options.onProgress?.('Matching exact dependency versions against OSV')
-  const dependencyResult = await scanDependencies(files, advisoryLookup, checks.dependencies)
+  const inspected: Array<Pick<SourceFile, 'path'>> = [], retained: SourceFile[] = [], collectedFindings: Finding[] = []
+  const { skipped, skippedCount } = await readSourceZip(file, options.onProgress, {
+    collect: false,
+    onFile(sourceFile) {
+      inspected.push({ path: sourceFile.path })
+      if (retainsContent(sourceFile.path)) retained.push(sourceFile)
+      collectedFindings.push(...scanFile(sourceFile, checks))
+    },
+  })
+  options.onProgress?.('Running selected static source checks', 80)
+  const findings = collectedFindings.map((item) => findingWithScan(item, scanId, item.verificationMethod ?? 'Review the source evidence and rerun the relevant check after remediation.'))
+  options.onProgress?.('Inventorying nested manifests and lockfiles', 88)
+  if (checks.dependencies) options.onProgress?.('Matching exact dependency versions against OSV', 92)
+  const dependencyResult = await scanDependencies(retained, advisoryLookup, checks.dependencies)
   const dependencyFindings = dependencyResult.dependencies.flatMap((dependency) => dependency.advisories.map((advisory) => findingWithScan(finding({
     title: `${advisory.packageName} has a known advisory`,
     rule: `DEP-${advisory.id}`,
@@ -391,17 +402,18 @@ export async function scanZip(
     verificationMethod: 'Regenerate the lockfile and rerun advisory matching against the resolved version.',
   }), scanId, 'Regenerate the lockfile and rerun advisory matching against the resolved version.')))
   const allFindings = [...findings, ...dependencyFindings]
-  options.onProgress?.('Detecting runtime declarations and finalizing coverage')
-  const runtimes = detectRuntimes(files)
+  options.onProgress?.('Detecting runtime declarations and finalizing coverage', 97)
+  const runtimes = detectRuntimes(retained)
   const now = new Date().toISOString()
-  const coverage = coverageFor(checks, files, dependencyResult.coverage, runtimes, skipped)
+  const coverage = coverageFor(checks, inspected, dependencyResult.coverage, runtimes, skipped, skippedCount)
   const scanTypes = coverage.filter((check) => check.id !== 'source' && check.status === 'passed').map((check) => check.label)
+  options.onProgress?.('Scan complete', 100)
   return {
     findings: allFindings,
     scans: [],
     target,
     scanId,
-    fileCount: files.length,
+    fileCount: inspected.length,
     checkedAt: now,
     scanTypes,
     isDemo: false,
@@ -410,7 +422,7 @@ export async function scanZip(
     dependencies: dependencyResult.dependencies,
     verificationHistory: [],
     scanType: 'Source upload',
-    sourceFiles: files.map((file) => file.path),
+    sourceFiles: inspected.map((file) => file.path),
     ...completion(coverage),
   }
 }

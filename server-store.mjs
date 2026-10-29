@@ -3,7 +3,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { ApiError } from './server-security.mjs'
 
-const MAX_SCAN_BYTES = 2 * 1024 * 1024
+const MAX_SCAN_BYTES = 32 * 1024 * 1024
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
 const text = (value) => typeof value === 'string' && value.length <= 100_000
 const nonempty = (value) => text(value) && value.trim().length > 0

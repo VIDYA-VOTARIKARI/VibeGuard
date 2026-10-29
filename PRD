@@ -130,11 +130,12 @@ The system shall provide a responsive landing page explaining the problem, propo
 The system shall allow users to upload ZIP archives containing source code.
 
 **Acceptance criteria:**
-- Supported file types and sizes are validated.
+- ZIP archives are limited to 100 MB, 500 MB extracted output, 50,000 entries, and 10 MB per supported text file; unsupported types are excluded.
+- Archives are parsed and scanned in the browser; only the completed scan record is submitted to the API.
 - Invalid archives produce understandable error messages.
 - Archive path traversal is prevented.
 - Uploaded code is handled as untrusted input.
-- The application displays upload and scan status.
+- The application displays validation and scan progress, and reports only completed checks as successful.
 
 ### FR-03: Security Scanning
 

@@ -37,6 +37,8 @@ function safeEqual(left, right) {
   return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
+const MAX_SCAN_REQUEST_BYTES = 32 * 1024 * 1024
+
 async function readJson(request, maxBytes = 3 * 1024 * 1024) {
   const invalid = () => new ApiError('INVALID_INPUT', 'The request must contain a valid JSON object within the size limit.')
   if (Number(request.headers['content-length'] ?? 0) > maxBytes) throw invalid()
@@ -229,14 +231,14 @@ function createApiServer({ dataDir, storage = createStore(dataDir), scanner = sa
     }
     if (request.method === 'POST' && url.pathname === '/api/scans') {
       requireUser(user, 'Sign in to save scan history.')
-      const body = await readJson(request)
+      const body = await readJson(request, MAX_SCAN_REQUEST_BYTES)
       const scan = await saveScan(body.scan, user.id)
       return json(response, 201, { scan, saved: true })
     }
     return json(response, 404, { error: 'Not found.', code: 'INVALID_INPUT' })
   }
 
-  return http.createServer({ requestTimeout: 15_000, headersTimeout: 10_000, maxHeaderSize: 16 * 1024 }, (request, response) => {
+  return http.createServer({ requestTimeout: 60_000, headersTimeout: 30_000, maxHeaderSize: 16 * 1024 }, (request, response) => {
     handle(request, response).catch((error) => {
       const known = error instanceof ApiError
       json(response, known ? error.status : 500, { error: known ? error.message : 'The request could not be completed.', code: known ? error.code : 'EXECUTION_FAILED' })
